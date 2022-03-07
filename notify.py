@@ -44,23 +44,31 @@ devLnH = None   #default Line Height in pixels
 background = None
 cmdRun = True
 notify_thread = None
+scroll_thread = None
+textLines =[]
+devLns = 2
 
+# no message for 5 minutes, stop the display and any scrolling
 def notify_timer_fired():
+  global scroll_thread, notify_thread
   notify_thread = None
   applog.info('TMO fired')
+  if scroll_thread:
+    scroll_thread.cancel()
+    scroll_thread = None
   device.hide()
 
 def notify_timer(secs):
   global notify_thread
   if notify_thread:
     # reset unfired timer by canceling.
-    notify_thread.cancel
-
+    notify_thread.cancel()
+  
   notify_thread = threading.Timer(secs, notify_timer_fired)
   notify_thread.start()
 
 def set_font(fnt):
-  global applog, devFnt, devLnH, settings
+  global applog, devFnt, devLnH, settings,devLns, device
   if fnt == 2:
     devFnt = font2
     devLnH = settings.font2sz[1] # ex: 16
@@ -70,7 +78,9 @@ def set_font(fnt):
   else:
     devFnt = font1 
     devLnH = settings.font1sz[1] # ex: 32
+  devLns = int(device.height/devLnH)        # number of lines = device.height/Font_Height
   applog.info(f'devLnH: {devLnH}')
+  applog.info(f'devLns: {devLns}={device.height}/{devLnH}')
 
 def parseSettings(dt):
   global devFnt, font1, font2, font3
@@ -128,7 +138,8 @@ def leading(word):
   
   
 def textCb(payload):
-  global devFnt, devLnH, cmdRun, device, stroke_fill
+  global devFnt, devLnH, cmdRun, device, textLines, devLns
+  global scroll_thread
   # should not have json for this call back
   if payload[0] == '{':
     applog.warn("no json processed on text/set")
@@ -136,18 +147,31 @@ def textCb(payload):
   cmdRun = True
   words = payload.split()
   nwd = len(words)
-  nln = int(device.height/devLnH)        # number of lines = device.height/Font_Height
-  applog.info(f'nln: {nln}={device.height}/{devLnH}')
   notify_timer(5*60)
   device.show()
+  textLines = []
+  if scroll_thread:
+    scroll_thread.cancel()
+    
+  needscroll = layoutLines(textLines,devLns, nwd, words)
+  if needscroll:
+    # set 1 sec timer
+    scroll_thread =  threading.Timer(1, scroll_timer_fired)
+    scroll_thread.start()
+    applog.info(f'setup scroll for {len(textLines)} lines')
+    displayLines(0, devLns, textLines)
+  else:
+    displayLines(0, devLns, textLines)
+    
+# returns True if we need to scroll 
+def layoutLines(lns, nln, nwd, words):
+  lns.clear()
   with canvas(device, dither=True) as draw:
     if nwd <= nln:
         y = 0
         for wd in words:
           wid = draw.textlength(wd, font=devFnt)
-          #applog.info(f'{wd} is width {wid}')
-          x = max(0, (device.width - wid)/2)
-          draw.multiline_text((x,y), wd, font=devFnt, fill=stroke_fill)
+          lns.append(wd)
           y += devLnH
     else: 
       ln = ""
@@ -156,9 +180,7 @@ def textCb(payload):
       for wd in words:
         w = draw.textlength(' '+wd, font=devFnt)
         if (wid + w) > device.width:
-          #applog.info(f'flushing |{ln}|')
-          x = (device.width - wid)/2
-          draw.multiline_text((x,y), ln, font=devFnt, fill=stroke_fill)
+          lns.append(ln)
           wid = 0
           ln = ""
           y += devLnH
@@ -173,10 +195,38 @@ def textCb(payload):
 
       # anything left over in ln ?
       if wid > 0:
-        x = (device.width - wid)/2;
-        draw.multiline_text((x,y), ln, font=devFnt, fill=stroke_fill)
-        #applog.info(f'final |{ln}|')
+        lns.append(ln)
+  return len(lns) > nln
 
+
+# st is index (0 based), end 1 higher  
+def displayLines(st, end, textLines):
+  global device, devLnH, firstLine 
+  firstLine = st
+  device.clear()
+  #applog.info(f'dspL {st} {end}')
+  with canvas(device, dither=True) as draw:
+    y = 0
+    for i in range(st, end):
+      wid = draw.textlength(textLines[i], font=devFnt)
+      x = (device.width - wid)/2
+      draw.multiline_text((x,y), textLines[i], font=devFnt, fill=stroke_fill)
+      y += devLnH
+
+# need to track the top line # displayed: global firstLine, 0 based.
+def scroll_timer_fired():
+  global firstLine, textLines, nlns, devLns, scroll_thread
+  #applog.info(f'scroll firstLine: {firstLine}')
+  firstLine = firstLine + devLns
+  maxl = len(textLines)
+  if firstLine > maxl:
+    # at the end, roll over
+    firstLine = 0
+  end = min(firstLine + devLns, maxl)
+  displayLines(firstLine, end, textLines)
+  scroll_thread =  threading.Timer(1, scroll_timer_fired)
+  scroll_thread.start()
+  
 def demo():
   global device, cmdRun
   img_path = str(Path(__file__).resolve().parent.joinpath('images', 'pi_logo.png'))
@@ -234,6 +284,7 @@ def main():
   #
   
   device = get_device(settings.luma_args)
+  applog.info(f'device: {device.height}, {device.width}')
   font1 = ImageFont.truetype(settings.font1, settings.font1sz[0])
   font2 = ImageFont.truetype(settings.font2, settings.font2sz[0])
   font3 = ImageFont.truetype(settings.font2, settings.font3sz[0])

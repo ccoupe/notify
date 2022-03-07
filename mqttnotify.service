@@ -1,0 +1,10 @@
+[Unit]
+Description=Mqtt Notify Service
+[Service]
+Environment=DISPLAY=:0.0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+ExecStart=/usr/local/lib/mqttnotify/mqttnotify.sh
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

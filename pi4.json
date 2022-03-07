@@ -1,13 +1,13 @@
 {
   "mqtt_server_ip": "stoic.local",
   "mqtt_port": 1883,
-  "mqtt_client_name": "pi4_note",
-  "homie_device": "pi4_display",
-  "homie_name": "Pi4 OLED screen",
-  "luma_args": ["--display", "sh1106"],
-  "font1": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-  "font1sz": [28 ,32],
-  "font3sz": [12,16],
+  "mqtt_client_name": "pi4_screen",
+  "homie_device": "pi4_screen",
+  "homie_name": "Pi4 screen saver",
+  "font1": "DejaVuSans",
+  "font1sz": [24 ,32],
+  "font2sz": [16,24],
+  "font3sz": [8,12],
   "stroke_fill": "white",
   "Default_Font": 1
 }
