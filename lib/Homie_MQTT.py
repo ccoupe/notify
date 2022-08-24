@@ -121,9 +121,8 @@ class Homie_MQTT:
        
   def on_disconnect(self, client, userdata, rc):
     self.mqtt_connected = False
-    if rc != 0:
-      self.log.warn(f"mqtt disconnect: {rc}, attempting reconnect")
-      self.client.reconnect()
+    self.log.warn(f"mqtt disconnect: {rc}, attempting reconnect")
+    self.client.reconnect()
       
   def set_status(self, str):
     self.client.publish(self.state_pub, str)
