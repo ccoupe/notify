@@ -153,12 +153,12 @@ def textCb(payload):
   if scroll_thread:
     scroll_thread.cancel()
     
-  needscroll = layoutLines(textLines,devLns, nwd, words)
+  needscroll = layoutLines(textLines, devLns, nwd, words)
   if needscroll:
     # set 1 sec timer
     scroll_thread =  threading.Timer(1, scroll_timer_fired)
     scroll_thread.start()
-    applog.info(f'setup scroll for {len(textLines)} lines')
+    #applog.info(f'setup scroll for {len(textLines)} lines')
     displayLines(0, devLns, textLines)
   else:
     displayLines(0, devLns, textLines)
@@ -166,6 +166,7 @@ def textCb(payload):
 # returns True if we need to scroll 
 def layoutLines(lns, nln, nwd, words):
   lns.clear()
+  #applog.info(f'layoutlines: {nln} {nwd} {words}')
   with canvas(device, dither=True) as draw:
     if nwd <= nln:
         y = 0
@@ -196,15 +197,19 @@ def layoutLines(lns, nln, nwd, words):
       # anything left over in ln ?
       if wid > 0:
         lns.append(ln)
+        
   return len(lns) > nln
 
 
 # st is index (0 based), end 1 higher  
 def displayLines(st, end, textLines):
-  global device, devLnH, firstLine 
+  global device, devLnH, firstLine,applog 
   firstLine = st
   device.clear()
   #applog.info(f'dspL {st} {end}')
+  if len(textLines) < end:
+    end = len(textLines)
+    #applog.info(f'fixing up end to {end}')
   with canvas(device, dither=True) as draw:
     y = 0
     for i in range(st, end):
