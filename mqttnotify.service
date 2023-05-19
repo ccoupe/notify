@@ -1,5 +1,6 @@
 [Unit]
 Description=Mqtt Notify Service
+After=syslog.target network-online.target
 [Service]
 Environment=DISPLAY=:0.0
 Environment=XAUTHORITY=/home/pi/.Xauthority
